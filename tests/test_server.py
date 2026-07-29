@@ -2,7 +2,7 @@ import io
 import json
 
 from tts_mcp.notify import DEFAULT_MESSAGE, notification_message
-from tts_mcp.server import handle_speak, process_message, serve
+from tts_mcp.server import handle_notify, process_message, serve
 from tts_mcp.tts import text_hash
 
 
@@ -29,7 +29,7 @@ def test_process_message_initializes_with_instructions():
 def test_process_message_tools_list():
     response = process_message({"jsonrpc": "2.0", "id": 2, "method": "tools/list"})
     assert response is not None
-    assert response["result"]["tools"][0]["name"] == "speak"
+    assert response["result"]["tools"][0]["name"] == "notify"
 
 
 def test_serve_uses_json_lines():
@@ -40,10 +40,10 @@ def test_serve_uses_json_lines():
     serve(input_stream, output_stream)
     response = json.loads(output_stream.getvalue())
     assert response["id"] == 3
-    assert response["result"]["tools"][0]["name"] == "speak"
+    assert response["result"]["tools"][0]["name"] == "notify"
 
 
-def test_handle_speak_reuses_existing_audio(monkeypatch, tmp_path):
+def test_handle_notify_reuses_existing_audio(monkeypatch, tmp_path):
     audio_path = tmp_path / f"speak-{text_hash('done' + chr(0) + 'default')}.wav"
     audio_path.write_bytes(b"wave")
     monkeypatch.setattr("tts_mcp.server.output_dir", lambda: tmp_path)
@@ -52,12 +52,12 @@ def test_handle_speak_reuses_existing_audio(monkeypatch, tmp_path):
         lambda message, path: "test-player",
     )
 
-    result = handle_speak({"message": "done", "play_audio": True})
+    result = handle_notify({"message": "done", "play_audio": True})
     assert result["audio_path"] == str(audio_path)
     assert result["played"] is True
 
 
-def test_handle_speak_reports_persisted_mute(monkeypatch, tmp_path):
+def test_handle_notify_reports_persisted_mute(monkeypatch, tmp_path):
     audio_path = tmp_path / f"speak-{text_hash('done' + chr(0) + 'default')}.wav"
     audio_path.write_bytes(b"wave")
     monkeypatch.setattr("tts_mcp.server.output_dir", lambda: tmp_path)
@@ -66,7 +66,7 @@ def test_handle_speak_reports_persisted_mute(monkeypatch, tmp_path):
         lambda message, path: "tts-disabled",
     )
 
-    result = handle_speak({"message": "done", "play_audio": True})
+    result = handle_notify({"message": "done", "play_audio": True})
 
     assert result["played"] is False
     assert result["player"] == "tts-disabled"

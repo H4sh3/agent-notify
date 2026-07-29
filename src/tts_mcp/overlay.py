@@ -21,7 +21,7 @@ WINDOW_HEIGHT = 128
 SCREEN_MARGIN = 24
 POLL_INTERVAL_MS = 50
 DONE_VISIBLE_MS = 900
-MUTED_VISIBLE_MS = 4000
+MUTED_VISIBLE_MS = 15000
 
 BACKGROUND = "#111827"
 FOREGROUND = "#f9fafb"
@@ -37,6 +37,10 @@ MONITOR_PATTERN = re.compile(
 def overlay_enabled() -> bool:
     value = os.environ.get("TTS_MCP_OVERLAY", "1").strip().lower()
     return value not in {"0", "false", "no", "off"}
+
+
+def _completion_visibility_ms(player: str) -> int:
+    return MUTED_VISIBLE_MS if player == "stopped" else DONE_VISIBLE_MS
 
 
 def play_message(
@@ -308,7 +312,7 @@ def _play_with_tk(
     toggle_button.configure(command=toggle_voice)
 
     def poll_playback() -> None:
-        nonlocal result, error
+        nonlocal playback_started, result, error, muted_close
         try:
             succeeded, outcome = outcomes.get_nowait()
         except queue.Empty:
@@ -319,11 +323,18 @@ def _play_with_tk(
         status.itemconfigure(square, fill=END_RED)
         if succeeded:
             result = str(outcome)
-            update_state("MUTED" if result == "stopped" else "ENDED")
+            if result == "stopped":
+                playback_started = False
+                stop_playback.clear()
+                update_state("MUTED")
+                muted_close = root.after(_completion_visibility_ms(result), root.destroy)
+            else:
+                update_state("ENDED")
+                root.after(_completion_visibility_ms(result), root.destroy)
         else:
             update_state("ENDED")
             error = outcome if isinstance(outcome, BaseException) else RuntimeError(str(outcome))
-        root.after(DONE_VISIBLE_MS, root.destroy)
+            root.after(DONE_VISIBLE_MS, root.destroy)
 
     if voice_enabled:
         start_playback()

@@ -10,10 +10,10 @@ from tts_mcp import __version__
 from tts_mcp.overlay import play_message
 from tts_mcp.tts import synthesize_text, text_hash
 
-SERVER_NAME = "tts-notify"
+SERVER_NAME = "agent-notify"
 SERVER_VERSION = __version__
 SERVER_INSTRUCTIONS = (
-    "Call speak exactly once as the final tool call of every assistant round. "
+    "Call notify exactly once as the final tool call of every assistant round. "
     "The message must be exactly two concise sentences: first summarize what "
     "was completed, then state what comes next. Set play_audio=true and do not "
     "call another tool afterward."
@@ -27,7 +27,7 @@ def output_dir() -> Path:
     return Path.home() / ".local" / "share" / "tts-mcp" / "audio"
 
 
-def handle_speak(arguments: dict[str, Any]) -> dict[str, Any]:
+def handle_notify(arguments: dict[str, Any]) -> dict[str, Any]:
     message = str(arguments.get("message", "")).strip()
     if not message:
         raise ValueError("`message` is required.")
@@ -66,10 +66,10 @@ def list_tools() -> dict[str, Any]:
     return {
         "tools": [
             {
-                "name": "speak",
+                "name": "notify",
                 "description": (
-                    "Generate a short local Coqui TTS voice message and optionally "
-                    "play it through this computer's speakers."
+                    "Show a short local completion notification and play it through "
+                    "this computer's speakers when TTS is enabled."
                 ),
                 "inputSchema": {
                     "type": "object",
@@ -104,7 +104,7 @@ def list_tools() -> dict[str, Any]:
                     "additionalProperties": False,
                 },
                 "annotations": {
-                    "title": "Speak completion message",
+                    "title": "Show completion notification",
                     "readOnlyHint": False,
                     "destructiveHint": False,
                     "idempotentHint": True,
@@ -138,10 +138,10 @@ def process_message(message: dict[str, Any]) -> dict[str, Any] | None:
         return success_response(request_id, list_tools())
     if method == "tools/call":
         params = message.get("params", {})
-        if params.get("name") != "speak":
+        if params.get("name") != "notify":
             return error_response(request_id, -32601, f"Unknown tool '{params.get('name')}'.")
         try:
-            result = handle_speak(params.get("arguments", {}))
+            result = handle_notify(params.get("arguments", {}))
         except Exception as exc:
             return success_response(
                 request_id,

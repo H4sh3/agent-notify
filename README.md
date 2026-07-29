@@ -11,17 +11,25 @@ Requires Python 3.11 and [`uv`](https://docs.astral.sh/uv/).
 
 ```bash
 uv sync
-codex mcp add tts -- "$(pwd)/.venv/bin/tts-mcp"
+codex mcp add agent-notify -- "$(pwd)/.venv/bin/tts-mcp"
 ```
 
-Restart Codex, then run `/mcp` to check that `tts` is connected. The voice model
-downloads automatically the first time it speaks.
+Restart Codex, then run `/mcp` to check that `agent-notify` is connected. The
+voice model downloads automatically the first time it speaks.
+
+Upgrading from the earlier `tts.speak` tool:
+
+```bash
+codex mcp remove tts
+codex mcp add agent-notify -- "$(pwd)/.venv/bin/tts-mcp"
+```
 
 ## Turn TTS on or off
 
 Use the **TTS ON / TTS OFF** button in any notification window. Your choice is
 saved and applies to future messages; muted messages remain visible so you can
-turn speech back on. Turning TTS off also stops the message currently playing.
+turn speech back on. Turning TTS off also stops the message currently playing,
+and the muted window remains open for 15 seconds.
 
 You can also use the terminal:
 

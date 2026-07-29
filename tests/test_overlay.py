@@ -156,3 +156,8 @@ def test_overlay_position_falls_back_to_desktop_top_left(monkeypatch):
     monkeypatch.setattr(overlay, "_active_monitors", lambda: [])
 
     assert overlay._overlay_position() == (24, 24)
+
+
+def test_stopped_playback_remains_visible_longer():
+    assert overlay._completion_visibility_ms("stopped") == 15000
+    assert overlay._completion_visibility_ms("aplay") == overlay.DONE_VISIBLE_MS
