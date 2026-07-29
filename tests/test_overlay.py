@@ -167,3 +167,11 @@ def test_window_height_grows_with_content_and_stays_on_screen():
     assert overlay._window_height(90, 1080) == overlay.WINDOW_HEIGHT
     assert overlay._window_height(420, 1080) == 420
     assert overlay._window_height(1200, 1080) == 1032
+
+
+def test_progress_width_counts_down_and_stays_bounded():
+    assert overlay._progress_width(200, 0, 1000) == 200
+    assert overlay._progress_width(200, 250, 1000) == 150
+    assert overlay._progress_width(200, 1000, 1000) == 0
+    assert overlay._progress_width(200, 1200, 1000) == 0
+    assert overlay._progress_width(200, 0, 0) == 0

@@ -6,6 +6,7 @@ import re
 import subprocess
 import sys
 import threading
+import time
 from pathlib import Path
 from typing import Callable
 
@@ -20,6 +21,7 @@ WINDOW_WIDTH = 420
 WINDOW_HEIGHT = 128
 SCREEN_MARGIN = 24
 POLL_INTERVAL_MS = 50
+PROGRESS_INTERVAL_MS = 50
 DONE_VISIBLE_MS = 900
 MUTED_VISIBLE_MS = 15000
 
@@ -28,6 +30,8 @@ FOREGROUND = "#f9fafb"
 MUTED = "#9ca3af"
 START_GREEN = "#22c55e"
 END_RED = "#ef4444"
+PROGRESS_TRACK = "#1f2937"
+PROGRESS_FILL = "#6b7280"
 MONITOR_PATTERN = re.compile(
     r"^\s*\d+:\s+\S+\s+"
     r"(\d+)/\d+x(\d+)/\d+([+-]\d+)([+-]\d+)\s"
@@ -46,6 +50,13 @@ def _completion_visibility_ms(player: str) -> int:
 def _window_height(requested_height: int, screen_height: int) -> int:
     available_height = max(WINDOW_HEIGHT, screen_height - (SCREEN_MARGIN * 2))
     return max(WINDOW_HEIGHT, min(requested_height, available_height))
+
+
+def _progress_width(total_width: int, elapsed_ms: float, duration_ms: int) -> int:
+    if duration_ms <= 0:
+        return 0
+    remaining = max(0.0, 1.0 - (elapsed_ms / duration_ms))
+    return round(total_width * remaining)
 
 
 def play_message(
@@ -250,6 +261,28 @@ def _play_with_tk(
         sticky="nsew",
         pady=(7, 0),
     )
+
+    progress = tk.Canvas(
+        container,
+        height=3,
+        bg=PROGRESS_TRACK,
+        highlightthickness=0,
+    )
+    progress.grid(
+        row=2,
+        column=0,
+        columnspan=4,
+        sticky="ew",
+        pady=(12, 0),
+    )
+    progress_fill = progress.create_rectangle(
+        0,
+        0,
+        WINDOW_WIDTH,
+        3,
+        fill=PROGRESS_FILL,
+        outline="",
+    )
     container.columnconfigure(1, weight=1)
     container.rowconfigure(1, weight=1)
 
@@ -263,6 +296,40 @@ def _play_with_tk(
     stop_playback = threading.Event()
     result: str | None = "tts-disabled" if not voice_enabled else None
     error: BaseException | None = None
+    progress_update: str | None = None
+
+    def show_full_progress() -> None:
+        width = max(1, progress.winfo_width())
+        progress.coords(progress_fill, 0, 0, width, 3)
+
+    def cancel_close_timer() -> None:
+        nonlocal muted_close, progress_update
+        if muted_close is not None:
+            root.after_cancel(muted_close)
+            muted_close = None
+        if progress_update is not None:
+            root.after_cancel(progress_update)
+            progress_update = None
+        show_full_progress()
+
+    def start_close_timer(duration_ms: int) -> None:
+        nonlocal muted_close, progress_update
+        cancel_close_timer()
+        started_at = time.monotonic()
+
+        def update_progress() -> None:
+            nonlocal progress_update
+            elapsed_ms = (time.monotonic() - started_at) * 1000
+            width = max(1, progress.winfo_width())
+            remaining_width = _progress_width(width, elapsed_ms, duration_ms)
+            progress.coords(progress_fill, 0, 0, remaining_width, 3)
+            if remaining_width > 0:
+                progress_update = root.after(PROGRESS_INTERVAL_MS, update_progress)
+            else:
+                progress_update = None
+
+        muted_close = root.after(duration_ms, root.destroy)
+        update_progress()
 
     def update_state(text: str) -> None:
         waiting = pending_count()
@@ -283,9 +350,7 @@ def _play_with_tk(
         nonlocal playback_started, result, muted_close
         if playback_started:
             return
-        if muted_close is not None:
-            root.after_cancel(muted_close)
-            muted_close = None
+        cancel_close_timer()
         playback_started = True
         result = None
         status.itemconfigure(square, fill=START_GREEN)
@@ -297,7 +362,7 @@ def _play_with_tk(
         nonlocal muted_close
         status.itemconfigure(square, fill=END_RED)
         update_state("MUTED")
-        muted_close = root.after(MUTED_VISIBLE_MS, root.destroy)
+        start_close_timer(MUTED_VISIBLE_MS)
 
     def toggle_voice() -> None:
         nonlocal voice_enabled
@@ -332,14 +397,14 @@ def _play_with_tk(
                 playback_started = False
                 stop_playback.clear()
                 update_state("MUTED")
-                muted_close = root.after(_completion_visibility_ms(result), root.destroy)
+                start_close_timer(_completion_visibility_ms(result))
             else:
                 update_state("ENDED")
-                root.after(_completion_visibility_ms(result), root.destroy)
+                start_close_timer(_completion_visibility_ms(result))
         else:
             update_state("ENDED")
             error = outcome if isinstance(outcome, BaseException) else RuntimeError(str(outcome))
-            root.after(DONE_VISIBLE_MS, root.destroy)
+            start_close_timer(DONE_VISIBLE_MS)
 
     if voice_enabled:
         start_playback()

@@ -29,7 +29,8 @@ codex mcp add agent-notify -- "$(pwd)/.venv/bin/tts-mcp"
 Use the **TTS ON / TTS OFF** button in any notification window. Your choice is
 saved and applies to future messages; muted messages remain visible so you can
 turn speech back on. Turning TTS off also stops the message currently playing,
-and the muted window remains open for 15 seconds.
+and the muted window remains open for 15 seconds. A small bar at the bottom
+shows the remaining display time.
 
 You can also use the terminal:
 
