@@ -30,7 +30,8 @@ Use the **TTS ON / TTS OFF** button in any notification window. Your choice is
 saved and applies to future messages; muted messages remain visible so you can
 turn speech back on. Turning TTS off also stops the message currently playing,
 and the muted window remains open for 15 seconds. A small bar at the bottom
-shows the remaining display time.
+shows the remaining display time. Use the pause button beside the bar to keep a
+notification open, then resume the remaining countdown or close it manually.
 
 You can also use the terminal:
 

@@ -175,3 +175,9 @@ def test_progress_width_counts_down_and_stays_bounded():
     assert overlay._progress_width(200, 1000, 1000) == 0
     assert overlay._progress_width(200, 1200, 1000) == 0
     assert overlay._progress_width(200, 0, 0) == 0
+    assert overlay._progress_width(200, 250, 1000, 0.5) == 75
+
+
+def test_remaining_time_for_paused_countdown():
+    assert overlay._remaining_ms(20.0, 18.25) == 1750
+    assert overlay._remaining_ms(20.0, 20.5) == 1

@@ -52,11 +52,20 @@ def _window_height(requested_height: int, screen_height: int) -> int:
     return max(WINDOW_HEIGHT, min(requested_height, available_height))
 
 
-def _progress_width(total_width: int, elapsed_ms: float, duration_ms: int) -> int:
+def _progress_width(
+    total_width: int,
+    elapsed_ms: float,
+    duration_ms: int,
+    initial_fraction: float = 1.0,
+) -> int:
     if duration_ms <= 0:
         return 0
     remaining = max(0.0, 1.0 - (elapsed_ms / duration_ms))
-    return round(total_width * remaining)
+    return round(total_width * max(0.0, min(initial_fraction, 1.0)) * remaining)
+
+
+def _remaining_ms(deadline: float, now: float) -> int:
+    return max(1, round((deadline - now) * 1000))
 
 
 def play_message(
@@ -229,7 +238,6 @@ def _play_with_tk(
     close_button = tk.Button(
         container,
         text="×",
-        command=root.withdraw,
         bg=BACKGROUND,
         fg=MUTED,
         activebackground="#1f2937",
@@ -271,8 +279,9 @@ def _play_with_tk(
     progress.grid(
         row=2,
         column=0,
-        columnspan=4,
+        columnspan=3,
         sticky="ew",
+        padx=(0, 8),
         pady=(12, 0),
     )
     progress_fill = progress.create_rectangle(
@@ -283,6 +292,24 @@ def _play_with_tk(
         fill=PROGRESS_FILL,
         outline="",
     )
+
+    pause_button = tk.Button(
+        container,
+        text="Ⅱ",
+        bg=BACKGROUND,
+        fg=MUTED,
+        activebackground="#1f2937",
+        activeforeground=FOREGROUND,
+        font=("TkDefaultFont", 8, "bold"),
+        relief="flat",
+        borderwidth=0,
+        highlightthickness=0,
+        padx=6,
+        pady=0,
+        cursor="hand2",
+    )
+    pause_button.grid(row=2, column=3, sticky="e", pady=(8, 0))
+
     container.columnconfigure(1, weight=1)
     container.rowconfigure(1, weight=1)
 
@@ -297,31 +324,58 @@ def _play_with_tk(
     result: str | None = "tts-disabled" if not voice_enabled else None
     error: BaseException | None = None
     progress_update: str | None = None
+    close_deadline: float | None = None
+    close_duration_ms: int | None = None
+    paused_remaining_ms: int | None = None
+    paused_progress_fraction = 1.0
+    auto_close_paused = False
+    dismissed = False
 
     def show_full_progress() -> None:
         width = max(1, progress.winfo_width())
         progress.coords(progress_fill, 0, 0, width, 3)
 
-    def cancel_close_timer() -> None:
-        nonlocal muted_close, progress_update
+    def cancel_close_timer(*, reset_progress: bool = True) -> None:
+        nonlocal muted_close, progress_update, close_deadline, close_duration_ms
         if muted_close is not None:
             root.after_cancel(muted_close)
             muted_close = None
         if progress_update is not None:
             root.after_cancel(progress_update)
             progress_update = None
-        show_full_progress()
+        close_deadline = None
+        close_duration_ms = None
+        if reset_progress:
+            show_full_progress()
 
-    def start_close_timer(duration_ms: int) -> None:
-        nonlocal muted_close, progress_update
+    def start_close_timer(
+        duration_ms: int,
+        *,
+        initial_fraction: float = 1.0,
+    ) -> None:
+        nonlocal muted_close, progress_update, close_deadline, close_duration_ms
+        nonlocal paused_remaining_ms, paused_progress_fraction
         cancel_close_timer()
+        if auto_close_paused:
+            paused_remaining_ms = duration_ms
+            paused_progress_fraction = initial_fraction
+            return
+
+        paused_remaining_ms = None
         started_at = time.monotonic()
+        close_deadline = started_at + (duration_ms / 1000)
+        close_duration_ms = duration_ms
 
         def update_progress() -> None:
             nonlocal progress_update
             elapsed_ms = (time.monotonic() - started_at) * 1000
             width = max(1, progress.winfo_width())
-            remaining_width = _progress_width(width, elapsed_ms, duration_ms)
+            remaining_width = _progress_width(
+                width,
+                elapsed_ms,
+                duration_ms,
+                initial_fraction,
+            )
             progress.coords(progress_fill, 0, 0, remaining_width, 3)
             if remaining_width > 0:
                 progress_update = root.after(PROGRESS_INTERVAL_MS, update_progress)
@@ -330,6 +384,51 @@ def _play_with_tk(
 
         muted_close = root.after(duration_ms, root.destroy)
         update_progress()
+
+    def toggle_auto_close() -> None:
+        nonlocal auto_close_paused, paused_remaining_ms, paused_progress_fraction
+        if not auto_close_paused:
+            auto_close_paused = True
+            remaining = (
+                _remaining_ms(close_deadline, time.monotonic())
+                if close_deadline is not None
+                else None
+            )
+            paused_progress_fraction = (
+                min(1.0, remaining / close_duration_ms)
+                if remaining is not None and close_duration_ms
+                else 1.0
+            )
+            cancel_close_timer(reset_progress=False)
+            paused_remaining_ms = remaining
+            pause_button.configure(
+                text="▶",
+                bg="#374151",
+                fg=FOREGROUND,
+            )
+        else:
+            auto_close_paused = False
+            remaining = paused_remaining_ms
+            initial_fraction = paused_progress_fraction
+            paused_remaining_ms = None
+            paused_progress_fraction = 1.0
+            pause_button.configure(
+                text="Ⅱ",
+                bg=BACKGROUND,
+                fg=MUTED,
+            )
+            if remaining is not None:
+                start_close_timer(remaining, initial_fraction=initial_fraction)
+
+    def dismiss() -> None:
+        nonlocal dismissed
+        dismissed = True
+        root.withdraw()
+        if not playback_started or result is not None:
+            root.destroy()
+
+    pause_button.configure(command=toggle_auto_close)
+    close_button.configure(command=dismiss)
 
     def update_state(text: str) -> None:
         waiting = pending_count()
@@ -347,10 +446,13 @@ def _play_with_tk(
             outcomes.put((False, exc))
 
     def start_playback() -> None:
-        nonlocal playback_started, result, muted_close
+        nonlocal playback_started, result, muted_close, paused_remaining_ms
+        nonlocal paused_progress_fraction
         if playback_started:
             return
         cancel_close_timer()
+        paused_remaining_ms = None
+        paused_progress_fraction = 1.0
         playback_started = True
         result = None
         status.itemconfigure(square, fill=START_GREEN)
@@ -405,6 +507,8 @@ def _play_with_tk(
             update_state("ENDED")
             error = outcome if isinstance(outcome, BaseException) else RuntimeError(str(outcome))
             start_close_timer(DONE_VISIBLE_MS)
+        if dismissed:
+            root.destroy()
 
     if voice_enabled:
         start_playback()
