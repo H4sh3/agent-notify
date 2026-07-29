@@ -10,6 +10,7 @@ def test_play_message_can_disable_overlay(monkeypatch, tmp_path):
     audio_path = tmp_path / "message.wav"
     calls: list[Path] = []
     monkeypatch.setenv("TTS_MCP_OVERLAY", "off")
+    monkeypatch.setattr(overlay, "tts_enabled", lambda: True)
 
     result = overlay.play_message(
         "Finished.",
@@ -41,6 +42,7 @@ def test_play_message_falls_back_when_display_is_unavailable(monkeypatch, tmp_pa
     audio_path = tmp_path / "message.wav"
     calls: list[Path] = []
     monkeypatch.delenv("TTS_MCP_OVERLAY", raising=False)
+    monkeypatch.setattr(overlay, "tts_enabled", lambda: True)
     monkeypatch.setattr(
         overlay,
         "_play_with_tk",

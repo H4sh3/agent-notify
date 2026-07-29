@@ -96,7 +96,11 @@ def synthesize_text(
     return output_path
 
 
-def play_audio_file(audio_path: Path) -> str:
+def play_audio_file(
+    audio_path: Path,
+    *,
+    stop_event: threading.Event | None = None,
+) -> str:
     resolved = str(audio_path.expanduser().resolve())
     environment = os.environ.copy()
     if sys.platform == "linux" and not environment.get("XDG_RUNTIME_DIR"):
@@ -113,6 +117,8 @@ def play_audio_file(audio_path: Path) -> str:
     elif sys.platform == "darwin":
         candidates = (["afplay", resolved],)
     elif sys.platform == "win32":
+        if stop_event is not None and stop_event.is_set():
+            return "stopped"
         os.startfile(resolved)
         return "os.startfile"
     else:
@@ -120,8 +126,10 @@ def play_audio_file(audio_path: Path) -> str:
 
     failures: list[str] = []
     for command in candidates:
+        if stop_event is not None and stop_event.is_set():
+            return "stopped"
         try:
-            completed = subprocess.run(
+            process = subprocess.Popen(
                 command,
                 env=environment,
                 stdin=subprocess.DEVNULL,
@@ -129,13 +137,28 @@ def play_audio_file(audio_path: Path) -> str:
                 stderr=subprocess.PIPE,
                 start_new_session=True,
                 text=True,
-                check=False,
             )
         except FileNotFoundError:
             continue
-        if completed.returncode == 0:
+
+        while True:
+            if stop_event is not None and stop_event.is_set():
+                process.terminate()
+                try:
+                    process.communicate(timeout=1)
+                except subprocess.TimeoutExpired:
+                    process.kill()
+                    process.communicate()
+                return "stopped"
+            try:
+                _, stderr = process.communicate(timeout=0.05)
+                break
+            except subprocess.TimeoutExpired:
+                continue
+
+        if process.returncode == 0:
             return command[0]
-        detail = completed.stderr.strip() or f"exit status {completed.returncode}"
+        detail = stderr.strip() or f"exit status {process.returncode}"
         failures.append(f"{command[0]}: {detail}")
 
     if failures:

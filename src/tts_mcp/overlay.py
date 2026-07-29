@@ -251,6 +251,7 @@ def _play_with_tk(
     root.deiconify()
 
     outcomes: queue.Queue[tuple[bool, str | BaseException]] = queue.Queue(maxsize=1)
+    stop_playback = threading.Event()
     result: str | None = "tts-disabled" if not voice_enabled else None
     error: BaseException | None = None
 
@@ -261,7 +262,11 @@ def _play_with_tk(
 
     def run_playback() -> None:
         try:
-            outcomes.put((True, playback(audio_path)))
+            if playback is play_audio_file:
+                outcome = playback(audio_path, stop_event=stop_playback)
+            else:
+                outcome = playback(audio_path)
+            outcomes.put((True, outcome))
         except BaseException as exc:
             outcomes.put((False, exc))
 
@@ -297,7 +302,8 @@ def _play_with_tk(
         if voice_enabled and not playback_started:
             start_playback()
         elif not voice_enabled and playback_started:
-            update_state("PLAYING • OFF NEXT")
+            stop_playback.set()
+            update_state("STOPPING")
 
     toggle_button.configure(command=toggle_voice)
 
@@ -306,15 +312,16 @@ def _play_with_tk(
         try:
             succeeded, outcome = outcomes.get_nowait()
         except queue.Empty:
-            update_state("PLAYING" if voice_enabled else "PLAYING • OFF NEXT")
+            update_state("PLAYING" if voice_enabled else "STOPPING")
             root.after(POLL_INTERVAL_MS, poll_playback)
             return
 
         status.itemconfigure(square, fill=END_RED)
-        update_state("ENDED")
         if succeeded:
             result = str(outcome)
+            update_state("MUTED" if result == "stopped" else "ENDED")
         else:
+            update_state("ENDED")
             error = outcome if isinstance(outcome, BaseException) else RuntimeError(str(outcome))
         root.after(DONE_VISIBLE_MS, root.destroy)
 

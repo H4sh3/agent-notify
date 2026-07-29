@@ -21,7 +21,7 @@ downloads automatically the first time it speaks.
 
 Use the **TTS ON / TTS OFF** button in any notification window. Your choice is
 saved and applies to future messages; muted messages remain visible so you can
-turn speech back on.
+turn speech back on. Turning TTS off also stops the message currently playing.
 
 You can also use the terminal:
 
