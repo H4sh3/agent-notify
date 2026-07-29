@@ -43,6 +43,11 @@ def _completion_visibility_ms(player: str) -> int:
     return MUTED_VISIBLE_MS if player == "stopped" else DONE_VISIBLE_MS
 
 
+def _window_height(requested_height: int, screen_height: int) -> int:
+    available_height = max(WINDOW_HEIGHT, screen_height - (SCREEN_MARGIN * 2))
+    return max(WINDOW_HEIGHT, min(requested_height, available_height))
+
+
 def play_message(
     message: str,
     audio_path: Path,
@@ -249,7 +254,7 @@ def _play_with_tk(
     container.rowconfigure(1, weight=1)
 
     root.update_idletasks()
-    height = max(WINDOW_HEIGHT, min(240, container.winfo_reqheight()))
+    height = _window_height(container.winfo_reqheight(), root.winfo_screenheight())
     x, y = _overlay_position()
     root.geometry(f"{WINDOW_WIDTH}x{height}+{x}+{y}")
     root.deiconify()

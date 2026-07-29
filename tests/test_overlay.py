@@ -161,3 +161,9 @@ def test_overlay_position_falls_back_to_desktop_top_left(monkeypatch):
 def test_stopped_playback_remains_visible_longer():
     assert overlay._completion_visibility_ms("stopped") == 15000
     assert overlay._completion_visibility_ms("aplay") == overlay.DONE_VISIBLE_MS
+
+
+def test_window_height_grows_with_content_and_stays_on_screen():
+    assert overlay._window_height(90, 1080) == overlay.WINDOW_HEIGHT
+    assert overlay._window_height(420, 1080) == 420
+    assert overlay._window_height(1200, 1080) == 1032
