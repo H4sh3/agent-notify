@@ -10,16 +10,18 @@ from pathlib import Path
 from typing import Callable
 
 from tts_mcp.playback_queue import playback_turn
+from tts_mcp.preferences import set_tts_enabled, tts_enabled
 from tts_mcp.tts import play_audio_file
 
 Playback = Callable[[Path], str]
 PendingCount = Callable[[], int]
 
-WINDOW_WIDTH = 380
+WINDOW_WIDTH = 420
 WINDOW_HEIGHT = 128
 SCREEN_MARGIN = 24
 POLL_INTERVAL_MS = 50
 DONE_VISIBLE_MS = 900
+MUTED_VISIBLE_MS = 4000
 
 BACKGROUND = "#111827"
 FOREGROUND = "#f9fafb"
@@ -46,12 +48,12 @@ def play_message(
     """Show a status overlay while playing audio, with an audio-only fallback."""
     with playback_turn() as pending_count:
         if not overlay_enabled():
-            return playback(audio_path)
+            return playback(audio_path) if tts_enabled() else "tts-disabled"
 
         try:
             return _play_with_tk(message, audio_path, playback, pending_count)
         except _OverlayUnavailable:
-            return playback(audio_path)
+            return playback(audio_path) if tts_enabled() else "tts-disabled"
 
 
 class _OverlayUnavailable(RuntimeError):
@@ -183,6 +185,27 @@ def _play_with_tk(
     )
     state_label.grid(row=0, column=1, sticky="ew")
 
+    voice_enabled = tts_enabled()
+    playback_started = False
+    muted_close: str | None = None
+
+    toggle_button = tk.Button(
+        container,
+        text="TTS ON" if voice_enabled else "TTS OFF",
+        bg="#166534" if voice_enabled else "#374151",
+        fg=FOREGROUND,
+        activebackground="#15803d" if voice_enabled else "#4b5563",
+        activeforeground=FOREGROUND,
+        font=("TkDefaultFont", 8, "bold"),
+        relief="flat",
+        borderwidth=0,
+        highlightthickness=0,
+        padx=8,
+        pady=3,
+        cursor="hand2",
+    )
+    toggle_button.grid(row=0, column=2, sticky="ne", padx=(8, 0))
+
     close_button = tk.Button(
         container,
         text="×",
@@ -199,7 +222,7 @@ def _play_with_tk(
         pady=0,
         cursor="hand2",
     )
-    close_button.grid(row=0, column=2, sticky="ne", padx=(8, 0))
+    close_button.grid(row=0, column=3, sticky="ne", padx=(6, 0))
 
     message_label = tk.Label(
         container,
@@ -214,7 +237,7 @@ def _play_with_tk(
     message_label.grid(
         row=1,
         column=1,
-        columnspan=2,
+        columnspan=3,
         sticky="nsew",
         pady=(7, 0),
     )
@@ -228,16 +251,7 @@ def _play_with_tk(
     root.deiconify()
 
     outcomes: queue.Queue[tuple[bool, str | BaseException]] = queue.Queue(maxsize=1)
-
-    def run_playback() -> None:
-        try:
-            outcomes.put((True, playback(audio_path)))
-        except BaseException as exc:
-            outcomes.put((False, exc))
-
-    threading.Thread(target=run_playback, name="tts-playback", daemon=True).start()
-
-    result: str | None = None
+    result: str | None = "tts-disabled" if not voice_enabled else None
     error: BaseException | None = None
 
     def update_state(text: str) -> None:
@@ -245,12 +259,54 @@ def _play_with_tk(
         suffix = f" • {waiting} QUEUED" if waiting else ""
         state_label.configure(text=f"{text}{suffix}")
 
+    def run_playback() -> None:
+        try:
+            outcomes.put((True, playback(audio_path)))
+        except BaseException as exc:
+            outcomes.put((False, exc))
+
+    def start_playback() -> None:
+        nonlocal playback_started, result, muted_close
+        if playback_started:
+            return
+        if muted_close is not None:
+            root.after_cancel(muted_close)
+            muted_close = None
+        playback_started = True
+        result = None
+        status.itemconfigure(square, fill=START_GREEN)
+        update_state("PLAYING")
+        threading.Thread(target=run_playback, name="tts-playback", daemon=True).start()
+        root.after(POLL_INTERVAL_MS, poll_playback)
+
+    def close_muted() -> None:
+        nonlocal muted_close
+        status.itemconfigure(square, fill=END_RED)
+        update_state("MUTED")
+        muted_close = root.after(MUTED_VISIBLE_MS, root.destroy)
+
+    def toggle_voice() -> None:
+        nonlocal voice_enabled
+        voice_enabled = not voice_enabled
+        set_tts_enabled(voice_enabled)
+        toggle_button.configure(
+            text="TTS ON" if voice_enabled else "TTS OFF",
+            bg="#166534" if voice_enabled else "#374151",
+            activebackground="#15803d" if voice_enabled else "#4b5563",
+        )
+        if voice_enabled and not playback_started:
+            start_playback()
+        elif not voice_enabled and playback_started:
+            update_state("PLAYING • OFF NEXT")
+
+    toggle_button.configure(command=toggle_voice)
+
     def poll_playback() -> None:
         nonlocal result, error
         try:
             succeeded, outcome = outcomes.get_nowait()
         except queue.Empty:
-            update_state("PLAYING")
+            update_state("PLAYING" if voice_enabled else "PLAYING • OFF NEXT")
             root.after(POLL_INTERVAL_MS, poll_playback)
             return
 
@@ -262,7 +318,10 @@ def _play_with_tk(
             error = outcome if isinstance(outcome, BaseException) else RuntimeError(str(outcome))
         root.after(DONE_VISIBLE_MS, root.destroy)
 
-    root.after(POLL_INTERVAL_MS, poll_playback)
+    if voice_enabled:
+        start_playback()
+    else:
+        close_muted()
     root.mainloop()
 
     if error is not None:

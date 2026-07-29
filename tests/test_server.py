@@ -57,6 +57,21 @@ def test_handle_speak_reuses_existing_audio(monkeypatch, tmp_path):
     assert result["played"] is True
 
 
+def test_handle_speak_reports_persisted_mute(monkeypatch, tmp_path):
+    audio_path = tmp_path / f"speak-{text_hash('done' + chr(0) + 'default')}.wav"
+    audio_path.write_bytes(b"wave")
+    monkeypatch.setattr("tts_mcp.server.output_dir", lambda: tmp_path)
+    monkeypatch.setattr(
+        "tts_mcp.server.play_message",
+        lambda message, path: "tts-disabled",
+    )
+
+    result = handle_speak({"message": "done", "play_audio": True})
+
+    assert result["played"] is False
+    assert result["player"] == "tts-disabled"
+
+
 def test_notification_payload_uses_last_assistant_message():
     payload = json.dumps(
         {

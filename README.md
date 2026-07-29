@@ -19,13 +19,17 @@ downloads automatically the first time it speaks.
 
 ## Turn TTS on or off
 
+Use the **TTS ON / TTS OFF** button in any notification window. Your choice is
+saved and applies to future messages; muted messages remain visible so you can
+turn speech back on.
+
+You can also use the terminal:
+
 ```bash
 uv run tts-config off
 uv run tts-config on
 uv run tts-config status
 ```
-
-Restart Codex after switching it on or off.
 
 ## Try it
 

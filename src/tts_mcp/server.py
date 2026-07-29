@@ -48,8 +48,9 @@ def handle_speak(arguments: dict[str, Any]) -> dict[str, Any]:
         "played": False,
     }
     if play_audio:
-        result["player"] = play_message(message, audio_path)
-        result["played"] = True
+        player = play_message(message, audio_path)
+        result["player"] = player
+        result["played"] = player != "tts-disabled"
     return result
 
 

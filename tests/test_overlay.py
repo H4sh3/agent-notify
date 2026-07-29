@@ -21,6 +21,22 @@ def test_play_message_can_disable_overlay(monkeypatch, tmp_path):
     assert calls == [audio_path]
 
 
+def test_audio_only_mode_honors_persisted_tts_setting(monkeypatch, tmp_path):
+    audio_path = tmp_path / "message.wav"
+    calls: list[Path] = []
+    monkeypatch.setenv("TTS_MCP_OVERLAY", "off")
+    monkeypatch.setattr(overlay, "tts_enabled", lambda: False)
+
+    result = overlay.play_message(
+        "Finished.",
+        audio_path,
+        playback=lambda path: calls.append(path) or "test-player",
+    )
+
+    assert result == "tts-disabled"
+    assert calls == []
+
+
 def test_play_message_falls_back_when_display_is_unavailable(monkeypatch, tmp_path):
     audio_path = tmp_path / "message.wav"
     calls: list[Path] = []
@@ -39,6 +55,26 @@ def test_play_message_falls_back_when_display_is_unavailable(monkeypatch, tmp_pa
 
     assert result == "test-player"
     assert calls == [audio_path]
+
+
+def test_unavailable_display_honors_persisted_tts_setting(monkeypatch, tmp_path):
+    audio_path = tmp_path / "message.wav"
+    calls: list[Path] = []
+    monkeypatch.setattr(overlay, "tts_enabled", lambda: False)
+    monkeypatch.setattr(
+        overlay,
+        "_play_with_tk",
+        lambda *args: (_ for _ in ()).throw(overlay._OverlayUnavailable()),
+    )
+
+    result = overlay.play_message(
+        "Finished.",
+        audio_path,
+        playback=lambda path: calls.append(path) or "test-player",
+    )
+
+    assert result == "tts-disabled"
+    assert calls == []
 
 
 def test_playback_errors_are_not_retried(monkeypatch, tmp_path):
