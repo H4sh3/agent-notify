@@ -1,0 +1,7 @@
+.pytest_cache/
+.python-version
+.venv/
+__pycache__/
+*.py[cod]
+*.wav
+runs/

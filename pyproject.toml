@@ -1,0 +1,47 @@
+[project]
+name = "tts-mcp"
+version = "0.1.0"
+description = "A local Coqui TTS MCP server and Codex completion notifier."
+readme = "README.md"
+requires-python = ">=3.11,<3.13"
+dependencies = [
+    "torch>=2.13.0",
+    "torchaudio>=2.11.0",
+    "tts==0.22.0",
+]
+
+[project.scripts]
+tts-mcp = "tts_mcp.server:main"
+tts-notify = "tts_mcp.notify:main"
+tts-config = "tts_mcp.config:main"
+
+[dependency-groups]
+dev = [
+    "pytest>=8.3.5",
+]
+
+[build-system]
+requires = ["hatchling>=1.25.0"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/tts_mcp"]
+
+[tool.pytest.ini_options]
+pythonpath = ["src"]
+testpaths = ["tests"]
+
+[tool.uv]
+package = true
+override-dependencies = [
+    "torch>=2.13.0",
+    "torchaudio>=2.11.0",
+]
+
+[tool.uv.sources]
+torch = { index = "pytorch" }
+torchaudio = { index = "pytorch" }
+
+[[tool.uv.index]]
+name = "pytorch"
+url = "https://download.pytorch.org/whl/cpu"

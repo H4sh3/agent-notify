@@ -1,0 +1,10 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 160 160" role="img" aria-labelledby="title description">
+  <title id="title">tts-mcp</title>
+  <desc id="description">A speaker inside a message bubble with green and red playback indicators.</desc>
+  <rect width="160" height="160" rx="34" fill="#15171a"/>
+  <path d="M31 35h98a18 18 0 0 1 18 18v51a18 18 0 0 1-18 18H82l-24 20v-20H31a18 18 0 0 1-18-18V53a18 18 0 0 1 18-18Z" fill="#f4f5f6"/>
+  <path d="M38 69h19l23-18v56L57 89H38Z" fill="#15171a"/>
+  <path d="M92 65c8 7 8 22 0 29M103 55c14 13 14 36 0 49" fill="none" stroke="#15171a" stroke-width="7" stroke-linecap="round"/>
+  <rect x="129" y="28" width="18" height="18" rx="5" fill="#39d98a"/>
+  <rect x="129" y="114" width="18" height="18" rx="5" fill="#ff5c5c"/>
+</svg>
