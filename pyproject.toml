@@ -14,6 +14,7 @@ dependencies = [
 tts-mcp = "tts_mcp.server:main"
 tts-notify = "tts_mcp.notify:main"
 tts-config = "tts_mcp.config:main"
+agent-notify-setup = "tts_mcp.setup:main"
 
 [dependency-groups]
 dev = [

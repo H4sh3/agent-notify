@@ -11,11 +11,13 @@ Requires Python 3.11 and [`uv`](https://docs.astral.sh/uv/).
 
 ```bash
 uv sync
+uv run --no-sync agent-notify-setup
 codex mcp add agent-notify -- "$(pwd)/.venv/bin/tts-mcp"
 ```
 
 Restart Codex, then run `/mcp` to check that `agent-notify` is connected. The
-voice model downloads automatically the first time it speaks.
+setup command downloads and loads the voice model, then opens a real test
+notification. Its generated audio is cached for later runs.
 
 Upgrading from the earlier `tts.speak` tool:
 

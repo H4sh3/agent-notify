@@ -60,6 +60,12 @@ def _load_model() -> Any:
     return _MODEL
 
 
+def load_model() -> str:
+    """Load or download the configured voice model and return its name."""
+    _load_model()
+    return _MODEL_NAME or DEFAULT_MODEL
+
+
 def _default_speaker() -> str | None:
     configured = os.environ.get("TTS_MCP_SPEAKER")
     if configured is not None:
