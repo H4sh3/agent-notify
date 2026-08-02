@@ -7,7 +7,8 @@ and appears in a small always-on-top overlay.
 
 ## Install
 
-Requires Python 3.11 and [`uv`](https://docs.astral.sh/uv/).
+Supports Python 3.11 through 3.14 and requires
+[`uv`](https://docs.astral.sh/uv/).
 
 ```bash
 uv sync

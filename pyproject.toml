@@ -3,11 +3,12 @@ name = "tts-mcp"
 version = "0.1.0"
 description = "A local Coqui TTS MCP server and Codex completion notifier."
 readme = "README.md"
-requires-python = ">=3.11,<3.13"
+requires-python = ">=3.11,<3.15"
 dependencies = [
+    "coqui-tts[languages,codec]==0.27.5",
     "torch>=2.13.0",
     "torchaudio>=2.11.0",
-    "tts==0.22.0",
+    "transformers<5.1",
 ]
 
 [project.scripts]
@@ -37,6 +38,7 @@ package = true
 override-dependencies = [
     "torch>=2.13.0",
     "torchaudio>=2.11.0",
+    "transformers<5.1",
 ]
 
 [tool.uv.sources]
